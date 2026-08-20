@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#274690" />
+  <meta name="description" content="Aplikasi absensi QR siswa - absen masuk, pulang, rekap Excel, dan kartu PDF B2." />
+  <title>Absen QR Siswa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="toastRoot" class="toast-root" aria-live="polite"></div>
+
+  <section id="configScreen" class="center-screen hidden">
+    <div class="setup-card">
+      <div class="brand-mark">QR</div>
+      <h1>Firebase belum dikonfigurasi</h1>
+      <p>Aplikasi sudah siap. Isi data Firebase Anda di <code>js/firebase-config.js</code>, lalu buka ulang halaman ini.</p>
+      <div class="setup-code">js/firebase-config.js</div>
+      <p class="muted">Panduan lengkap ada di file <b>CARA-PASANG.md</b> di dalam ZIP.</p>
+    </div>
+  </section>
+
+  <section id="loginScreen" class="auth-screen hidden">
+    <div class="auth-bg auth-bg-1"></div>
+    <div class="auth-bg auth-bg-2"></div>
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-mark">QR</div>
+        <div>
+          <h1>Absen QR Siswa</h1>
+          <p>Masuk ke panel sekolah</p>
+        </div>
+      </div>
+      <form id="loginForm" class="form-stack">
+        <label class="field">
+          <span>Email admin</span>
+          <input id="loginEmail" type="email" autocomplete="username" placeholder="admin@sekolah.sch.id" required />
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <div class="input-action-wrap">
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="••••••••" required />
+            <button id="togglePasswordBtn" class="icon-btn small" type="button" aria-label="Tampilkan password">👁</button>
+          </div>
+        </label>
+        <button id="loginBtn" class="btn primary full" type="submit">Masuk</button>
+        <button id="resetPasswordBtn" class="btn link full" type="button">Lupa password?</button>
+      </form>
+      <p class="auth-note">Akun admin dibuat dari Firebase Authentication. Tidak ada pendaftaran umum.</p>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark small-mark">QR</div>
+        <div class="brand-copy">
+          <strong id="sidebarSchoolName">Nama Sekolah</strong>
+          <span>Absensi Siswa</span>
+        </div>
+      </div>
+
+      <nav class="side-nav" aria-label="Navigasi utama">
+        <button class="nav-item active" data-page="dashboard">
+          <span class="nav-icon">⌂</span><span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-page="scanner">
+          <span class="nav-icon">▣</span><span>Scan Absen</span>
+        </button>
+        <button class="nav-item" data-page="students">
+          <span class="nav-icon">♙</span><span>Data Siswa</span>
+        </button>
+        <button class="nav-item" data-page="reports">
+          <span class="nav-icon">▤</span><span>Rekap Absen</span>
+        </button>
+        <button class="nav-item" data-page="cards">
+          <span class="nav-icon">▧</span><span>Kartu Absen</span>
+        </button>
+        <button class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙</span><span>Pengaturan</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-mini">
+          <div class="avatar">A</div>
+          <div>
+            <strong>Administrator</strong>
+            <span id="userEmailMini">-</span>
+          </div>
+        </div>
+        <button id="logoutBtn" class="btn ghost full">Keluar</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button id="menuBtn" class="icon-btn menu-btn" aria-label="Buka menu">☰</button>
+          <div>
+            <h2 id="pageTitle">Dashboard</h2>
+            <p id="pageSubtitle">Ringkasan absensi hari ini</p>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <div class="date-chip" id="todayChip">-</div>
+          <div class="status-dot-wrap"><span class="status-dot"></span><span>Online</span></div>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <!-- DASHBOARD -->
+        <section id="page-dashboard" class="page active">
+          <div class="hero-panel">
+            <div>
+              <span class="eyebrow">ABSENSI HARI INI</span>
+              <h1 id="dashboardGreeting">Selamat datang</h1>
+              <p>Kelola scan masuk, pulang, data siswa, rekap, dan kartu QR dari satu panel.</p>
+            </div>
+            <button class="btn light" data-go-page="scanner">Mulai Scan →</button>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card">
+              <div class="stat-icon blue">👥</div>
+              <div><span>Total Siswa Aktif</span><strong id="statTotalStudents">0</strong></div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-icon green">✓</div>
+              <div><span>Hadir Hari Ini</span><strong id="statPresent">0</strong></div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-icon orange">⏱</div>
+              <div><span>Terlambat</span><strong id="statLate">0</strong></div>
+            </article>
+            <article class="stat-card">
+              <div class="stat-icon purple">⇥</div>
+              <div><span>Sudah Pulang</span><strong id="statCheckout">0</strong></div>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <div><h3>Aktivitas Terbaru</h3><p>Scan masuk/pulang terbaru hari ini.</p></div>
+                <button class="btn small ghost" data-go-page="reports">Lihat Rekap</button>
+              </div>
+              <div class="table-wrap compact">
+                <table>
+                  <thead><tr><th>Nama</th><th>Kelas</th><th>Status</th><th>Masuk</th><th>Pulang</th></tr></thead>
+                  <tbody id="recentAttendanceBody"><tr><td colspan="5" class="empty-cell">Belum ada data.</td></tr></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head"><div><h3>Ringkasan Kelas</h3><p>Jumlah siswa aktif per kelas.</p></div></div>
+              <div id="classSummary" class="class-summary"></div>
+            </article>
+          </div>
+        </section>
+
+        <!-- SCANNER -->
+        <section id="page-scanner" class="page">
+          <div class="scanner-layout">
+            <article class="panel scanner-panel">
+              <div class="panel-head scanner-head">
+                <div>
+                  <h3>Scanner QR</h3>
+                  <p>Kamera tetap terbuka setelah scan agar siswa berikutnya bisa langsung absen.</p>
+                </div>
+                <div class="mode-toggle" role="group" aria-label="Mode absen">
+                  <button class="mode-btn active" data-scan-mode="masuk">Absen Masuk</button>
+                  <button class="mode-btn" data-scan-mode="pulang">Absen Pulang</button>
+                </div>
+              </div>
+
+              <div class="camera-toolbar">
+                <select id="cameraSelect" class="select compact-select"><option value="">Kamera belakang (otomatis)</option></select>
+                <button id="refreshCameraBtn" class="btn small ghost">Muat Kamera</button>
+                <button id="torchBtn" class="btn small ghost hidden">Lampu</button>
+              </div>
+
+              <div class="camera-box" id="cameraBox">
+                <video id="scannerVideo" playsinline muted></video>
+                <canvas id="scannerCanvas" class="hidden"></canvas>
+                <div class="scan-frame"><span></span><span></span><span></span><span></span></div>
+                <div class="camera-placeholder" id="cameraPlaceholder">
+                  <div class="camera-illustration">▣</div>
+                  <h4>Kamera belum aktif</h4>
+                  <p>Tekan tombol “Mulai Kamera”.</p>
+                </div>
+                <div id="cameraStatus" class="camera-status">Siap</div>
+              </div>
+
+              <div class="scanner-actions">
+                <button id="startCameraBtn" class="btn primary">Mulai Kamera</button>
+                <button id="stopCameraBtn" class="btn danger ghost" disabled>Hentikan Kamera</button>
+              </div>
+              <p class="hint">Tips: posisikan QR di tengah kotak. Setelah satu QR berhasil, arahkan ke QR siswa berikutnya tanpa menutup kamera.</p>
+            </article>
+
+            <div class="scanner-side">
+              <article id="scanResultCard" class="panel scan-result empty-result">
+                <div class="result-icon">QR</div>
+                <h3 id="scanResultTitle">Menunggu scan</h3>
+                <p id="scanResultText">Data siswa akan muncul di sini setelah QR terbaca.</p>
+                <div id="scanResultMeta" class="result-meta hidden"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-head"><div><h3>Scan Terakhir</h3><p>10 transaksi terbaru hari ini.</p></div></div>
+                <div id="scanHistory" class="scan-history"><div class="empty-state-mini">Belum ada scan.</div></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- STUDENTS -->
+        <section id="page-students" class="page">
+          <article class="panel">
+            <div class="panel-head wrap-head">
+              <div><h3>Data Siswa</h3><p>Tambah manual atau impor sekaligus dari Excel.</p></div>
+              <div class="head-actions">
+                <button id="downloadTemplateBtn" class="btn ghost">Template Excel</button>
+                <label class="btn ghost file-btn">Import Excel<input id="excelFileInput" type="file" accept=".xlsx,.xls" hidden></label>
+                <button id="exportStudentsBtn" class="btn ghost">Export Siswa</button>
+                <button id="addStudentBtn" class="btn primary">+ Tambah Siswa</button>
+              </div>
+            </div>
+
+            <div class="filters-row">
+              <div class="search-box"><span>⌕</span><input id="studentSearch" type="search" placeholder="Cari nama atau NISN..." /></div>
+              <select id="studentClassFilter" class="select"><option value="">Semua Kelas</option></select>
+              <select id="studentActiveFilter" class="select"><option value="active">Aktif</option><option value="all">Semua</option><option value="inactive">Nonaktif</option></select>
+              <div class="count-chip"><span id="studentCountLabel">0 siswa</span></div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>NISN</th><th>Nama</th><th>Kelas</th><th>JK</th><th>Status</th><th>QR ID</th><th class="text-right">Aksi</th></tr></thead>
+                <tbody id="studentsBody"><tr><td colspan="7" class="empty-cell">Belum ada siswa.</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <!-- REPORTS -->
+        <section id="page-reports" class="page">
+          <article class="panel">
+            <div class="panel-head wrap-head">
+              <div><h3>Rekap Absensi</h3><p>Filter data, input manual, dan unduh ke Excel.</p></div>
+              <div class="head-actions">
+                <button id="manualAttendanceBtn" class="btn ghost">+ Input Manual</button>
+                <button id="exportReportBtn" class="btn primary">Download Excel</button>
+              </div>
+            </div>
+
+            <div class="report-filter-grid">
+              <label class="field"><span>Dari tanggal</span><input id="reportFrom" type="date" /></label>
+              <label class="field"><span>Sampai tanggal</span><input id="reportTo" type="date" /></label>
+              <label class="field"><span>Kelas</span><select id="reportClass" class="select"><option value="">Semua Kelas</option></select></label>
+              <label class="field"><span>Status</span><select id="reportStatus" class="select"><option value="">Semua Status</option><option>Hadir</option><option>Terlambat</option><option>Izin</option><option>Sakit</option><option>Alpha</option></select></label>
+              <button id="loadReportBtn" class="btn dark report-load-btn">Tampilkan</button>
+            </div>
+
+            <div class="report-stats">
+              <div><span>Jumlah Data</span><strong id="reportStatTotal">0</strong></div>
+              <div><span>Hadir</span><strong id="reportStatPresent">0</strong></div>
+              <div><span>Terlambat</span><strong id="reportStatLate">0</strong></div>
+              <div><span>Izin/Sakit</span><strong id="reportStatExcused">0</strong></div>
+              <div><span>Alpha</span><strong id="reportStatAlpha">0</strong></div>
+            </div>
+
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Tanggal</th><th>NISN</th><th>Nama</th><th>Kelas</th><th>Status</th><th>Masuk</th><th>Pulang</th><th>Keterangan</th><th class="text-right">Aksi</th></tr></thead>
+                <tbody id="reportBody"><tr><td colspan="9" class="empty-cell">Pilih rentang tanggal lalu tekan Tampilkan.</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+
+        <!-- CARDS -->
+        <section id="page-cards" class="page">
+          <div class="cards-layout">
+            <article class="panel">
+              <div class="panel-head wrap-head">
+                <div>
+                  <h3>Cetak Kartu Absen QR</h3>
+                  <p>Ukuran kartu B2 65 × 105 mm. PDF A4 berisi maksimal 6 kartu per halaman.</p>
+                </div>
+                <button id="generateCardsPdfBtn" class="btn primary">Download PDF A4</button>
+              </div>
+
+              <div class="filters-row">
+                <div class="search-box"><span>⌕</span><input id="cardSearch" type="search" placeholder="Cari siswa..." /></div>
+                <select id="cardClassFilter" class="select"><option value="">Semua Kelas</option></select>
+                <label class="check-all"><input id="selectAllCards" type="checkbox" /> Pilih semua yang tampil</label>
+              </div>
+
+              <div class="card-select-list" id="cardStudentList"></div>
+            </article>
+
+            <article class="panel preview-panel">
+              <div class="panel-head"><div><h3>Pratinjau</h3><p>Desain mengikuti contoh biru-putih yang Anda kirim.</p></div></div>
+              <div id="cardPreviewMount" class="card-preview-mount"></div>
+              <div class="preview-note">PDF memakai ukuran fisik 65 × 105 mm per kartu.</div>
+            </article>
+          </div>
+        </section>
+
+        <!-- SETTINGS -->
+        <section id="page-settings" class="page">
+          <div class="settings-grid">
+            <article class="panel">
+              <div class="panel-head"><div><h3>Identitas Sekolah</h3><p>Dipakai pada panel dan kartu absen.</p></div></div>
+              <form id="schoolSettingsForm" class="form-grid">
+                <label class="field span-2"><span>Nama sekolah</span><input id="settingSchoolName" type="text" required /></label>
+                <label class="field"><span>Nama singkat</span><input id="settingSchoolShort" type="text" placeholder="SMP AL-MIFTAH" /></label>
+                <label class="field"><span>Tahun pelajaran</span><input id="settingAcademicYear" type="text" placeholder="2026/2027" /></label>
+                <label class="field span-2"><span>Alamat</span><input id="settingAddress" type="text" placeholder="Alamat sekolah" /></label>
+                <div class="field span-2">
+                  <span>Logo sekolah</span>
+                  <div class="logo-setting-row">
+                    <div id="settingsLogoPreview" class="settings-logo-preview">LOGO</div>
+                    <div class="logo-actions">
+                      <label class="btn ghost file-btn">Pilih Logo<input id="logoFileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden></label>
+                      <button id="removeLogoBtn" type="button" class="btn danger ghost">Hapus Logo</button>
+                      <small>Logo otomatis diperkecil agar ringan dan disimpan di Firestore.</small>
+                    </div>
+                  </div>
+                </div>
+                <div class="span-2 form-actions"><button class="btn primary" type="submit">Simpan Identitas</button></div>
+              </form>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head"><div><h3>Aturan Absensi</h3><p>Dipakai untuk menentukan status terlambat.</p></div></div>
+              <form id="attendanceSettingsForm" class="form-grid">
+                <label class="field"><span>Jam masuk</span><input id="settingStartTime" type="time" required /></label>
+                <label class="field"><span>Toleransi terlambat (menit)</span><input id="settingLateTolerance" type="number" min="0" max="180" required /></label>
+                <label class="field span-2"><span>Teks sisi kartu</span><input id="settingCardSideText" type="text" placeholder="SMP AL-MIFTAH KETAPANG" /></label>
+                <label class="field"><span>Warna utama</span><input id="settingPrimaryColor" type="color" /></label>
+                <label class="field"><span>Warna aksen</span><input id="settingAccentColor" type="color" /></label>
+                <div class="span-2 fixed-size-note"><strong>Ukuran kartu:</strong> B2 65 × 105 mm (tetap), sesuai referensi yang Anda kirim.</div>
+                <div class="span-2 form-actions"><button class="btn primary" type="submit">Simpan Aturan</button></div>
+              </form>
+            </article>
+
+            <article class="panel full-span">
+              <div class="panel-head"><div><h3>Informasi Sistem</h3><p>Ringkasan koneksi dan keamanan.</p></div></div>
+              <div class="info-grid">
+                <div><span>Admin aktif</span><strong id="settingsUserEmail">-</strong></div>
+                <div><span>Penyimpanan</span><strong>Cloud Firestore</strong></div>
+                <div><span>Hosting</span><strong>GitHub Pages</strong></div>
+                <div><span>Kamera</span><strong>getUserMedia()</strong></div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- STUDENT MODAL -->
+  <div id="studentModal" class="modal-root hidden" role="dialog" aria-modal="true" aria-labelledby="studentModalTitle">
+    <div class="modal-backdrop" data-close-modal="studentModal"></div>
+    <div class="modal-card">
+      <div class="modal-head"><div><h3 id="studentModalTitle">Tambah Siswa</h3><p>QR ID dibuat otomatis dan unik.</p></div><button class="icon-btn" data-close-modal="studentModal">✕</button></div>
+      <form id="studentForm" class="form-grid">
+        <input id="studentId" type="hidden" />
+        <label class="field"><span>NISN</span><input id="studentNisn" type="text" inputmode="numeric" maxlength="20" required /></label>
+        <label class="field"><span>Kelas</span><input id="studentClass" type="text" required placeholder="7A" /></label>
+        <label class="field span-2"><span>Nama lengkap</span><input id="studentName" type="text" required /></label>
+        <label class="field"><span>Jenis kelamin</span><select id="studentGender" class="select"><option value="">-</option><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></label>
+        <label class="field"><span>Status siswa</span><select id="studentActive" class="select"><option value="true">Aktif</option><option value="false">Nonaktif</option></select></label>
+        <label class="field"><span>Nama orang tua</span><input id="studentParentName" type="text" /></label>
+        <label class="field"><span>No. HP orang tua</span><input id="studentParentPhone" type="text" inputmode="tel" /></label>
+        <div class="span-2 modal-actions"><button type="button" class="btn ghost" data-close-modal="studentModal">Batal</button><button id="saveStudentBtn" type="submit" class="btn primary">Simpan</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- IMPORT MODAL -->
+  <div id="importModal" class="modal-root hidden" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+    <div class="modal-backdrop" data-close-modal="importModal"></div>
+    <div class="modal-card wide-modal">
+      <div class="modal-head"><div><h3 id="importModalTitle">Preview Import Excel</h3><p>Baris yang tidak sesuai aturan tidak akan diimpor.</p></div><button class="icon-btn" data-close-modal="importModal">✕</button></div>
+      <div id="importSummary" class="import-summary"></div>
+      <div class="table-wrap import-table-wrap">
+        <table><thead><tr><th>Baris</th><th>NISN</th><th>Nama</th><th>Kelas</th><th>JK</th><th>Status</th><th>Keterangan</th></tr></thead><tbody id="importPreviewBody"></tbody></table>
+      </div>
+      <div class="modal-actions"><button class="btn ghost" data-close-modal="importModal">Batal</button><button id="confirmImportBtn" class="btn primary">Import Data Valid</button></div>
+    </div>
+  </div>
+
+  <!-- MANUAL ATTENDANCE MODAL -->
+  <div id="manualAttendanceModal" class="modal-root hidden" role="dialog" aria-modal="true" aria-labelledby="manualAttendanceTitle">
+    <div class="modal-backdrop" data-close-modal="manualAttendanceModal"></div>
+    <div class="modal-card">
+      <div class="modal-head"><div><h3 id="manualAttendanceTitle">Input Absensi Manual</h3><p>Untuk izin, sakit, alpha, atau koreksi jam.</p></div><button class="icon-btn" data-close-modal="manualAttendanceModal">✕</button></div>
+      <form id="manualAttendanceForm" class="form-grid">
+        <input id="manualAttendanceDocId" type="hidden" />
+        <label class="field span-2"><span>Siswa</span><select id="manualStudent" class="select" required></select></label>
+        <label class="field"><span>Tanggal</span><input id="manualDate" type="date" required /></label>
+        <label class="field"><span>Status</span><select id="manualStatus" class="select" required><option>Hadir</option><option>Terlambat</option><option>Izin</option><option>Sakit</option><option>Alpha</option></select></label>
+        <label class="field"><span>Jam masuk</span><input id="manualInTime" type="time" /></label>
+        <label class="field"><span>Jam pulang</span><input id="manualOutTime" type="time" /></label>
+        <label class="field span-2"><span>Keterangan</span><textarea id="manualNote" rows="3" placeholder="Opsional"></textarea></label>
+        <div class="span-2 modal-actions"><button type="button" class="btn ghost" data-close-modal="manualAttendanceModal">Batal</button><button type="submit" class="btn primary">Simpan Absensi</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Third-party helper libraries: tetap HTML/CSS/JavaScript tanpa framework -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
