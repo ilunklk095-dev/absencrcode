@@ -3,7 +3,7 @@
 // Ganti semua nilai "ISI_..." dengan config Web App dari Firebase.
 // Firebase Console > Project settings > Your apps > Web app > Config
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyBxtb9020KUHdy8P00vS51N9SgnZipNf-w",
   authDomain: "absencrcode.firebaseapp.com",
   projectId: "absencrcode",
